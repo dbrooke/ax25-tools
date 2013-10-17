@@ -1,4 +1,3 @@
-#include <config.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,14 +9,12 @@
 #include <sys/socket.h>
 
 #include <netax25/ax25.h>
-#include <netrose/rose.h>
 
 #include <netax25/axlib.h>
 #include <netax25/axconfig.h>
 #include <netax25/daemon.h>
 
 static int logging = FALSE;
-static int mail = FALSE;
 static int single = FALSE;
 
 static void terminate(int sig)
@@ -37,8 +34,10 @@ int main(int argc, char *argv[])
 	int s, n, dlen, len, interval = 30;
 	char *addr, *port, *message, *portcall;
 	char *srccall = NULL, *destcall = NULL;
+
+	char test_message[]="Test";
 	
-	while ((n = getopt(argc, argv, "c:d:lmst:v")) != -1) {
+	while ((n = getopt(argc, argv, "c:d:lst:v")) != -1) {
 		switch (n) {
 			case 'c':
 				srccall = optarg;
@@ -49,61 +48,56 @@ int main(int argc, char *argv[])
 			case 'l':
 				logging = TRUE;
 				break;
-			case 'm':
-				mail = TRUE;
-				/* falls through */
 			case 's':
 				single = TRUE;
 				break;
 			case 't':
 				interval = atoi(optarg);
 				if (interval < 1) {
-					fprintf(stderr, "beacon: interval must be greater than on minute\n");
+					fprintf(stderr, "wsaprs: interval must be greater than one minute\n");
 					return 1;
 				}
 				break;
 			case 'v':
-				printf("beacon: %s\n", VERSION);
+				printf("wsaprs: %s\n", VERSION);
 				return 0;
 			case '?':
 			case ':':
-				fprintf(stderr, "usage: beacon [-c <src_call>] [-d <dest_call>] [-l] [-m] [-s] [-t interval] [-v] <port> <message>\n");
+				fprintf(stderr, "usage: wsaprs [-c <src_call>] [-d <dest_call>] [-l] [-s] [-t interval] [-v] <port>\n");
 				return 1;
 		}
 	}
 
 	signal(SIGTERM, terminate);
 
-	if (optind == argc || optind == argc - 1) {
-		fprintf(stderr, "usage: beacon [-c <src_call>] [-d <dest_call>] [-l] [-m] [-s] [-t interval] [-v] <port> <message>\n");
+	if (optind != argc - 1) {
+		fprintf(stderr, "usage: wsaprs [-c <src_call>] [-d <dest_call>] [-l] [-s] [-t interval] [-v] <port>\n");
 		return 1;
 	}
 
 	port    = argv[optind];
-	message = argv[optind + 1];
+	message = test_message;
 	
 	if (ax25_config_load_ports() == 0) {
-		fprintf(stderr, "beacon: no AX.25 ports defined\n");
+		fprintf(stderr, "wsaprs: no AX.25 ports defined\n");
 		return 1;
 	}
 
 	if ((portcall = ax25_config_get_addr(port)) == NULL) {
-		fprintf(stderr, "beacon: invalid AX.25 port setting - %s\n", port);
+		fprintf(stderr, "wsaprs: invalid AX.25 port setting - %s\n", port);
 		return 1;
 	}
 
 	addr = NULL;
-	if (mail)
-		addr = strdup("MAIL");
-	else if (destcall != NULL)
+	if (destcall != NULL)
 		addr = strdup(destcall);
 	else
-		addr = strdup("IDENT");
+		addr = strdup("APZGZH");
 	if (addr == NULL)
 	  return 1;
 
 	if ((dlen = ax25_aton(addr, &dest)) == -1) {
-		fprintf(stderr, "beacon: unable to convert callsign '%s'\n", addr);
+		fprintf(stderr, "wsaprs: unable to convert callsign '%s'\n", addr);
 		return 1;
 	}
 	if (addr != NULL) free(addr); addr = NULL;
@@ -118,20 +112,20 @@ int main(int argc, char *argv[])
 	}
 
 	if ((len = ax25_aton(addr, &src)) == -1) {
-		fprintf(stderr, "beacon: unable to convert callsign '%s'\n", addr);
+		fprintf(stderr, "wsaprs: unable to convert callsign '%s'\n", addr);
 		return 1;
 	}
 	if (addr != NULL) free(addr); addr = NULL;
 
 	if (!single) {
 		if (!daemon_start(FALSE)) {
-			fprintf(stderr, "beacon: cannot become a daemon\n");
+			fprintf(stderr, "wsaprs: cannot become a daemon\n");
 			return 1;
 		}
 	}
 
 	if (logging) {
-		openlog("beacon", LOG_PID, LOG_DAEMON);
+		openlog("wsaprs", LOG_PID, LOG_DAEMON);
 		syslog(LOG_INFO, "starting");
 	}
 
