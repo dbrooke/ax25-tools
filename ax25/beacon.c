@@ -14,6 +14,8 @@
 #include <netax25/axconfig.h>
 #include <netax25/daemon.h>
 
+#include "wsaprs.h"
+
 static int logging = FALSE;
 static int single = FALSE;
 
@@ -32,10 +34,10 @@ int main(int argc, char *argv[])
 	struct full_sockaddr_ax25 dest;
 	struct full_sockaddr_ax25 src;
 	int s, n, dlen, len, interval = 30;
-	char *addr, *port, *message, *portcall;
+	char *addr, *port, *portcall;
 	char *srccall = NULL, *destcall = NULL;
 
-	char test_message[]="Test";
+	char message[80];
 	
 	while ((n = getopt(argc, argv, "c:d:lst:v")) != -1) {
 		switch (n) {
@@ -76,7 +78,6 @@ int main(int argc, char *argv[])
 	}
 
 	port    = argv[optind];
-	message = test_message;
 	
 	if (ax25_config_load_ports() == 0) {
 		fprintf(stderr, "wsaprs: no AX.25 ports defined\n");
@@ -145,7 +146,10 @@ int main(int argc, char *argv[])
 			}
 			return 1;
 		}
-		
+
+		/* update the message string to the current APRS format weather string */
+		aprs_wx(message, sizeof(message));
+
 		if (sendto(s, message, strlen(message), 0, (struct sockaddr *)&dest, dlen) == -1) {
 			if (logging) {
 				syslog(LOG_ERR, "sendto: %m");
